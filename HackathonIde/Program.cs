@@ -5,6 +5,7 @@ using HackathonIde.Services;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +38,8 @@ builder.Services.AddHttpClient<GigaChatService>()
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
 app.UseCors("AllowAll");
 
 // 4. Маппинг хаба SignalR
@@ -53,7 +56,7 @@ app.MapPost("/api/projects", async (string name, AppDbContext db) =>
     return Results.Ok(project);
 });
 
-// Получение списка всех проектов (для дашборда) [cite: 26]
+// Получение списка всех проектов (для дашборда) 
 app.MapGet("/api/projects", async (AppDbContext db) =>
     await db.Projects.ToListAsync());
 
@@ -99,40 +102,35 @@ app.MapPost("/api/ai/resolve-conflict", async (string codeA, string codeB, GigaC
     return Results.Ok(new { resolvedCode });
 });
 
-app.MapPost("/api/projects/{id}/execute", async (int id, AppDbContext db) =>
+
+app.MapPost("/api/projects/{id}/execute", async (int id, ExecuteRequest request) =>
 {
-    var project = await db.Projects.FindAsync(id);
-    if (project == null || string.IsNullOrWhiteSpace(project.CurrentCode))
+    // Теперь мы берем код из запроса (request.Code), а не из базы!
+    if (string.IsNullOrWhiteSpace(request.Code))
         return Results.BadRequest("Нет кода для выполнения");
 
     try
     {
-        // Перехватываем вывод консоли (Console.WriteLine), чтобы вернуть его пользователю
         var sw = new StringWriter();
         Console.SetOut(sw);
 
-        // Настройки: добавляем стандартные библиотеки (System, Linq и т.д.)
-        var options = ScriptOptions.Default
+        var options = Microsoft.CodeAnalysis.Scripting.ScriptOptions.Default
             .WithReferences(typeof(System.Console).Assembly)
             .WithImports("System", "System.Collections.Generic", "System.Linq");
 
-        // ВЫПОЛНЯЕМ КОД
-        await CSharpScript.EvaluateAsync(project.CurrentCode, options);
+        // Выполняем свежий код из браузера
+        await Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.EvaluateAsync(request.Code, options);
 
-        // Возвращаем результат выполнения
         var output = sw.ToString();
         return Results.Ok(new { terminalOutput = string.IsNullOrEmpty(output) ? "Программа выполнена (вывода нет)" : output });
     }
     catch (Exception ex)
     {
-        // Если в коде студента ошибка — возвращаем её текст
-        return Results.Ok(new { terminalOutput = $"Ошибка выполнения: {ex.Message}" });
+        return Results.Ok(new { terminalOutput = $"Ошибка: {ex.Message}" });
     }
     finally
     {
-        // Возвращаем стандартный вывод обратно серверу
-        var standardOutput = new StreamWriter(Console.OpenStandardOutput());
-        standardOutput.AutoFlush = true;
+        var standardOutput = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
         Console.SetOut(standardOutput);
     }
 });
