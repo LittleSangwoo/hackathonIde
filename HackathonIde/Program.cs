@@ -38,6 +38,7 @@ builder.Services.AddHttpClient<GigaChatService>()
 var app = builder.Build();
 
 app.UseCors("AllowAll");
+app.UseStaticFiles();
 
 // 4. Маппинг хаба SignalR
 app.MapHub<EditorHub>("/editorHub");

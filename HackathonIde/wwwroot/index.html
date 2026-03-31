@@ -1,0 +1,89 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Collaborative IDE</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            height: 100vh;
+            margin: 0;
+            background: #1e1e1e;
+            color: white;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #editor {
+            flex-grow: 1;
+            height: 100%;
+        }
+
+        .side-panel {
+            width: 350px;
+            background: #252526;
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-panel {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            border-bottom: 1px solid #333;
+        }
+
+        .ai-panel {
+            height: 40%;
+            overflow-y: auto;
+            padding: 10px;
+            background: #2d2d2d;
+        }
+
+        .system-msg {
+            color: #6a9955;
+            border-bottom: 1px solid #333;
+            padding: 2px 0;
+        }
+
+        .ai-card {
+            background: #3c3c3c;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div id="editor"></div>
+
+        <div class="side-panel">
+            <div class="p-2 bg-dark text-center small fw-bold">События системы</div>
+            <div id="system-logs" class="log-panel"></div>
+
+            <div class="p-2 bg-dark text-center small fw-bold">AI Советник (GigaChat)</div>
+            <div id="ai-suggestions" class="ai-panel">
+                <div class="text-secondary small">Нажмите "Анализ", чтобы получить советы...</div>
+            </div>
+
+            <div class="p-3">
+                <button class="btn btn-primary w-100 mb-2" onclick="analyzeCode()">✨ Анализ GigaChat</button>
+                <button class="btn btn-outline-success w-100" onclick="runCode()">▶ Запустить код</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
