@@ -364,6 +364,9 @@ app.MapPost("/api/projects/create", async (Project data, AppDbContext db, Claims
 {
     var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+    if (await db.Projects.AnyAsync(p => p.Name == data.Name))
+        return Results.Conflict(new { message = "Комната с таким названием уже существует" });
+
     var newProject = new Project
     {
         Name = data.Name,
@@ -401,6 +404,19 @@ app.MapPost("/api/projects/{id}/join", async (int id, JoinProjectRequest request
         message = "Доступ разрешен",
         currentCode = project.CurrentCode
     });
+}).RequireAuthorization();
+
+app.MapDelete("/api/projects/{id}", async (int id, AppDbContext db, ClaimsPrincipal user) =>
+{
+    var project = await db.Projects.FindAsync(id);
+    if (project == null) return Results.NotFound();
+
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (project.OwnerId != userId) return Results.Forbid();
+
+    db.Projects.Remove(project);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { message = "Проект удален" });
 }).RequireAuthorization();
 
 app.Run();
