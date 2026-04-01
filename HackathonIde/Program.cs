@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
@@ -337,8 +338,9 @@ app.MapPost("/api/auth/register", async (AuthRequest request, AppDbContext db) =
 });
 
 // ЛОГИН (обновленный)
-app.MapPost("/api/auth/login", async (AuthRequest request, AppDbContext db) =>
+app.MapPost("/api/auth/login", async (AuthRequest request, AppDbContext db, ILogger<Program> logger) =>
 {
+    logger.LogInformation("Попытка входа: {Username}", request.Username);
     var user = await db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 
     if (user == null || user.Password != request.Password)
