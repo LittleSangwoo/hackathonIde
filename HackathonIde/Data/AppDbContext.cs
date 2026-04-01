@@ -9,5 +9,6 @@ namespace HackathonIde.Data
 
         public DbSet<Project> Projects => Set<Project>();
         public DbSet<CodeHistory> CodeHistories => Set<CodeHistory>();
+        public DbSet<User> Users => Set<User>();
     }
 }

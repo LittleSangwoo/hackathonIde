@@ -85,6 +85,9 @@ app.UseStaticFiles();
 app.UseCors("AllowAll");
 app.UseStaticFiles();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 // 4. Маппинг хаба SignalR
 app.MapHub<EditorHub>("/editorHub");
 
@@ -312,48 +315,90 @@ app.MapPost("/api/projects/{id}/execute", async (int id, ExecuteRequest request)
 //    }
 //});
 
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Эндпоинт ЛОГИНА (и регистрации заодно)
-app.MapPost("/api/auth/login", (AuthRequest request) =>
+// РЕГИСТРАЦИЯ
+app.MapPost("/api/auth/register", async (AuthRequest request, AppDbContext db) =>
 {
-    // ТУТ ДОЛЖЕН БЫТЬ ЗАПРОС К БД (например: db.Users.FirstOrDefault(u => u.Name == request.Username))
-    // Если пользователя нет - создаем, если есть - проверяем пароль. 
-    // Для хакатона сделаем заглушку: пускаем всех, у кого пароль не пустой.
     if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-        return Results.BadRequest(new { message = "Введите логин и пароль" });
+        return Results.BadRequest(new { message = "Логин и пароль не могут быть пустыми" });
 
-    // Генерируем "Пропуск" (JWT Token)
-    // Генерируем уникальный ID сессии "на лету"
-    var userId = Guid.NewGuid().ToString();
+    if (await db.Users.AnyAsync(u => u.Username == request.Username))
+        return Results.Conflict(new { message = "Пользователь с таким именем уже существует" });
 
-    var claims = new[] {
-    new Claim(ClaimTypes.Name, request.Username),
-    new Claim(ClaimTypes.NameIdentifier, userId) // <-- Кладем ID в бейджик!
-};
-    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-    var token = new JwtSecurityToken(claims: claims, expires: DateTime.Now.AddHours(24), signingCredentials: credentials);
+    var user = new User
+    {
+        Username = request.Username,
+        Password= request.Password
+    };
 
-    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
 
-    return Results.Ok(new { token = tokenString, username = request.Username });
+    return Results.Ok(new { message = "Регистрация успешна" });
 });
 
+// ЛОГИН (обновленный)
+app.MapPost("/api/auth/login", async (AuthRequest request, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+
+    if (user == null || user.Password != request.Password)
+        return Results.Unauthorized(); // 401 Unauthorized
+
+    // Кладем в токен Id пользователя и его имя
+    var claims = new[] {
+        new Claim(ClaimTypes.Name, user.Username),
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+    };
+
+    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(claims: claims, expires: DateTime.Now.AddHours(24), signingCredentials: credentials);
+    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Results.Ok(new { token = tokenString, username = user.Username, userId = user.Id });
+});
+
+// СОЗДАНИЕ КОМНАТЫ (Обновлено)
 app.MapPost("/api/projects/create", async (Project data, AppDbContext db, ClaimsPrincipal user) =>
 {
-    // Достаем тот самый сгенерированный ID из токена
     var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
     var newProject = new Project
     {
         Name = data.Name,
-        Password = data.Password,
-        OwnerId = userId // Сохраняем надежный ID создателя
+        Password = data.Password, // В идеале тоже хэшировать, но для хакатона сойдет и так
+        OwnerId = userId,
+        CurrentCode = "// Happy Coding!"
     };
+
     db.Projects.Add(newProject);
     await db.SaveChangesAsync();
-    return Results.Ok(new { projectId = newProject.Id });
+
+    return Results.Ok(new { projectId = newProject.Id, message = "Проект создан" });
+}).RequireAuthorization();
+
+// ВХОД В КОМНАТУ (Проверка пароля перед подключением к сокетам)
+app.MapPost("/api/projects/{id}/join", async (int id, JoinProjectRequest request, AppDbContext db, ClaimsPrincipal user) =>
+{
+    var project = await db.Projects.FindAsync(id);
+    if (project == null) return Results.NotFound(new { message = "Проект не найден" });
+
+    // Проверяем пароль (если проект с паролем)
+    if (!string.IsNullOrEmpty(project.Password) && project.Password != request.Password)
+    {
+        // Разрешаем войти без пароля, если это создатель комнаты
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (project.OwnerId != userId)
+        {
+            return Results.Unauthorized(); // Пароль неверный
+        }
+    }
+
+    // Если всё ок, возвращаем текущий код проекта, чтобы фронтенд сразу его загрузил
+    return Results.Ok(new
+    {
+        message = "Доступ разрешен",
+        currentCode = project.CurrentCode
+    });
 }).RequireAuthorization();
 
 app.Run();
