@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using System.Text.RegularExpressions;
 
 namespace HackathonIde.Hubs
 {
+    [Authorize]
     public class EditorHub : Hub
     {
         // Подключение к комнате конкретного проекта
@@ -28,8 +30,9 @@ namespace HackathonIde.Hubs
             await Clients.OthersInGroup(projectId).SendAsync("ReceiveCursor", user, lineNumber, column);
         }
 
-        public async Task JoinProjectSession(string projectId, string userName)
+        public async Task JoinProjectSession(string projectId)
         {
+            var userName = Context.User?.Identity?.Name ?? "Anonymous";
             await Groups.AddToGroupAsync(Context.ConnectionId, projectId);
             // Отправляем всем сообщение для ленты событий
             await Clients.Group(projectId).SendAsync("ReceiveSystemEvent", $"{userName} подключился к сессии");

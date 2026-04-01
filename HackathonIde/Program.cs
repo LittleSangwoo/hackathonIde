@@ -3,12 +3,17 @@ using HackathonIde.Data;
 using HackathonIde.Hubs;
 using HackathonIde.Models;
 using HackathonIde.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +43,40 @@ builder.Services.AddHttpClient<GigaChatService>()
     {
         ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
     });
+
+// 1. Секретный ключ для подписи (в реальном проекте хранить в appsettings.json!)
+var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("SuperSecretHackathonKey_MustBeAtLeast32BytesLong!!"));
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = securityKey
+        };
+
+        // ВАЖНО ДЛЯ SIGNALR: Чтение токена из URL, когда браузер открывает WebSocket
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                // Если запрос идет к нашему хабу
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/editorHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -272,5 +311,49 @@ app.MapPost("/api/projects/{id}/execute", async (int id, ExecuteRequest request)
 //        return Results.Ok(new { terminalOutput = $"Ошибка сети при вызове компилятора: {ex.Message}" });
 //    }
 //});
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Эндпоинт ЛОГИНА (и регистрации заодно)
+app.MapPost("/api/auth/login", (AuthRequest request) =>
+{
+    // ТУТ ДОЛЖЕН БЫТЬ ЗАПРОС К БД (например: db.Users.FirstOrDefault(u => u.Name == request.Username))
+    // Если пользователя нет - создаем, если есть - проверяем пароль. 
+    // Для хакатона сделаем заглушку: пускаем всех, у кого пароль не пустой.
+    if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        return Results.BadRequest(new { message = "Введите логин и пароль" });
+
+    // Генерируем "Пропуск" (JWT Token)
+    // Генерируем уникальный ID сессии "на лету"
+    var userId = Guid.NewGuid().ToString();
+
+    var claims = new[] {
+    new Claim(ClaimTypes.Name, request.Username),
+    new Claim(ClaimTypes.NameIdentifier, userId) // <-- Кладем ID в бейджик!
+};
+    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+    var token = new JwtSecurityToken(claims: claims, expires: DateTime.Now.AddHours(24), signingCredentials: credentials);
+
+    var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+
+    return Results.Ok(new { token = tokenString, username = request.Username });
+});
+
+app.MapPost("/api/projects/create", async (Project data, AppDbContext db, ClaimsPrincipal user) =>
+{
+    // Достаем тот самый сгенерированный ID из токена
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    var newProject = new Project
+    {
+        Name = data.Name,
+        Password = data.Password,
+        OwnerId = userId // Сохраняем надежный ID создателя
+    };
+    db.Projects.Add(newProject);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { projectId = newProject.Id });
+}).RequireAuthorization();
 
 app.Run();
