@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using HackathonIde.Data;
+using HackathonIde.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using System.Collections.Concurrent;
-using HackathonIde.Services;
 
 namespace HackathonIde.Hubs
 {
@@ -13,11 +14,13 @@ namespace HackathonIde.Hubs
         private static readonly ConcurrentDictionary<string, RoomState> _roomStates = new();
 
         private readonly GigaChatService _aiService;
+        private readonly AppDbContext _dbContext; // ДОБАВИЛИ БД
 
-        // Внедряем сервис AI прямо в хаб
-        public EditorHub(GigaChatService aiService)
+        // Внедряем сервисы через конструктор
+        public EditorHub(GigaChatService aiService, AppDbContext dbContext)
         {
             _aiService = aiService;
+            _dbContext = dbContext;
         }
 
         // ВХОД В КОМНАТУ (Решает задачи 6 и 12)
@@ -45,6 +48,27 @@ namespace HackathonIde.Hubs
 
             // Обновление списка участников для всех (Task 6)
             await Clients.Group(projectId).SendAsync("UpdateUserList", _roomUsers[projectId]);
+
+            // --- НОВЫЙ КОД ДЛЯ СИНХРОНИЗАЦИИ ---
+            string currentCode = "// Напишите ваш C# код здесь...";
+
+            // 1. Сначала ищем самую свежую версию в оперативной памяти (из Undo/Redo)
+            if (_roomStates.TryGetValue(projectId, out var state) && state.History.Any())
+            {
+                currentCode = state.History[state.CurrentIndex];
+            }
+            // 2. Если в памяти пусто (сервер перезапускался), достаем из БД
+            else if (int.TryParse(projectId, out int id))
+            {
+                var project = await _dbContext.Projects.FindAsync(id);
+                if (project != null && !string.IsNullOrWhiteSpace(project.CurrentCode))
+                {
+                    currentCode = project.CurrentCode;
+                }
+            }
+
+            // 3. Отправляем код ТОЛЬКО тому, кто зашел (Caller), чтобы его редактор заполнился
+            await Clients.Caller.SendAsync("ReceiveCodeUpdate", currentCode);
         }
 
         // ВЫХОД ИЗ КОМНАТЫ ПРИ ОТКЛЮЧЕНИИ (Решает задачу 2 и 6)
@@ -67,22 +91,27 @@ namespace HackathonIde.Hubs
         }
 
         // РАССЫЛКА И СОХРАНЕНИЕ КОДА (Для Task 8 - Undo/Redo)
-        public async Task BroadcastCodeChange(string projectId, string newCode)
+        public async Task BroadcastCodeChange(string projectId, object changeData, string newCode)
         {
-            // Сохраняем историю для Undo/Redo
-            _roomStates.AddOrUpdate(projectId,
-                _ => new RoomState { History = new List<string> { newCode }, CurrentIndex = 0 },
-                (_, state) => {
-                    // Если мы делали Undo, а потом начали печатать - отрезаем "будущее"
-                    if (state.CurrentIndex < state.History.Count - 1)
-                        state.History = state.History.Take(state.CurrentIndex + 1).ToList();
+            // --- НОВЫЙ КОД ДЛЯ СОХРАНЕНИЯ ПРОЕКТА ---
+            if (int.TryParse(projectId, out int id))
+            {
+                var project = await _dbContext.Projects.FindAsync(id);
+                if (project != null)
+                {
+                    project.CurrentCode = newCode;
+                    await _dbContext.SaveChangesAsync(); // Фиксируем в базе!
+                }
+            }
+            // Просто пересылаем данные остальным (для хакатона это самый быстрый фикс)
+            await Clients.OthersInGroup(projectId).SendAsync("ReceiveCodeUpdate", changeData);
+        }
 
-                    state.History.Add(newCode);
-                    state.CurrentIndex++;
-                    return state;
-                });
-
-            await Clients.OthersInGroup(projectId).SendAsync("ReceiveCodeUpdate", newCode);
+        // Метод для рассылки вывода терминала всем участникам проекта
+        public async Task SendTerminalOutput(string projectId, string output)
+        {
+            // Отправляем ВСЕМ в группе (включая отправителя, чтобы у всех был один лог)
+            await Clients.Group(projectId).SendAsync("ReceiveTerminalOutput", output);
         }
 
         // Task 8: КНОПКИ UNDO / REDO

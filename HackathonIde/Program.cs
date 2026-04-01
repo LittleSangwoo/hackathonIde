@@ -107,6 +107,29 @@ app.MapPost("/api/projects", async (string name, AppDbContext db) =>
 app.MapGet("/api/projects", async (AppDbContext db) =>
     await db.Projects.ToListAsync());
 
+// ПОЛУЧЕНИЕ СОЗДАННЫХ ПОЛЬЗОВАТЕЛЕМ КОМНАТ
+app.MapGet("/api/projects/my", async (AppDbContext db, ClaimsPrincipal user) =>
+{
+    // Достаем ID текущего пользователя из токена
+    var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+    if (string.IsNullOrEmpty(userId))
+        return Results.Unauthorized();
+
+    // Ищем только те проекты, где OwnerId совпадает с ID пользователя.
+    // Обязательно используем .Select, чтобы НЕ отправлять пароли на фронтенд!
+    var myProjects = await db.Projects
+        .Where(p => p.OwnerId == userId)
+        .Select(p => new
+        {
+            id = p.Id,
+            name = p.Name
+        })
+        .ToListAsync();
+
+    return Results.Ok(myProjects);
+}).RequireAuthorization();
+
 // Сохранение текущего состояния кода (чтобы не потерять при перезагрузке)
 app.MapPut("/api/projects/{id}", async (int id, string code, AppDbContext db) =>
 {
@@ -205,12 +228,20 @@ app.MapPost("/api/projects/{id}/execute", async (int id, ExecuteRequest request)
 {
     MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
     MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+    MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+    MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
+    MetadataReference.CreateFromFile(typeof(System.Text.Json.JsonSerializer).Assembly.Location),
+    
+    // Ссылка на Microsoft.CSharp (ты её уже добавила, но на всякий случай через Binder)
+    MetadataReference.CreateFromFile(typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly.Location),
 
-    // ДОБАВЛЯЕМ ВОТ ЭТИ ДВЕ СТРОЧКИ 
-    MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location), // Для работы LINQ (.Where, .OrderBy)
-    MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location), // Для работы со списками (List)
+    // ФИКС ТЕКУЩЕЙ ОШИБКИ: Библиотеки для работы динамических вызовов и Expressions
+    MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Linq.Expressions.dll")),
+    MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Dynamic.Runtime.dll")),
 
-    MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll"))
+    // Базовые системные файлы
+    MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Runtime.dll")),
+    MetadataReference.CreateFromFile(Path.Combine(assemblyPath, "System.Collections.dll"))
 };
 
         // 3. Создаем КОМПИЛЯЦИЮ (говорим, что это консольное приложение)
@@ -359,18 +390,27 @@ app.MapPost("/api/auth/login", async (AuthRequest request, AppDbContext db, ILog
     return Results.Ok(new { token = tokenString, username = user.Username, userId = user.Id });
 });
 
-// СОЗДАНИЕ КОМНАТЫ (Обновлено)
+// СОЗДАНИЕ КОМНАТЫ (Обновлено: пароль теперь обязателен)
 app.MapPost("/api/projects/create", async (Project data, AppDbContext db, ClaimsPrincipal user) =>
 {
     var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+    // 1. Проверка на пустое имя (хорошая практика)
+    if (string.IsNullOrWhiteSpace(data.Name))
+        return Results.BadRequest(new { message = "Название комнаты не может быть пустым" });
+
+    // 2. НОВАЯ ПРОВЕРКА: Пароль обязателен!
+    if (string.IsNullOrWhiteSpace(data.Password))
+        return Results.BadRequest(new { message = "Пароль обязателен для создания комнаты!" });
+
+    // 3. Проверка на уникальность имени (которую мы добавили ранее)
     if (await db.Projects.AnyAsync(p => p.Name == data.Name))
         return Results.Conflict(new { message = "Комната с таким названием уже существует" });
 
     var newProject = new Project
     {
         Name = data.Name,
-        Password = data.Password, // В идеале тоже хэшировать, но для хакатона сойдет и так
+        Password = data.Password,
         OwnerId = userId,
         CurrentCode = "// Happy Coding!"
     };
