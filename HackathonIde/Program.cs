@@ -44,6 +44,7 @@ var app = builder.Build();
 app.UseStaticFiles();
 
 app.UseCors("AllowAll");
+app.UseStaticFiles();
 
 // 4. Маппинг хаба SignalR
 app.MapHub<EditorHub>("/editorHub");
