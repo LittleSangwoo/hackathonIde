@@ -1,0 +1,13 @@
+@host = http://localhost:5110
+
+### 1. Проверка: Создать новый проект
+POST {{host}}/api/projects?name=MyTestProject
+
+### 2. Проверка: Получить все проекты (чтобы убедиться, что он сохранился)
+GET {{host}}/api/projects
+
+### 3. Проверка: Закинуть код в GigaChat (укажи ID созданного проекта, скорее всего это 1)
+POST {{host}}/api/projects/1/review
+
+### 4. Проверка: Выполнить код в Piston (ID проекта = 1)
+POST {{host}}/api/projects/1/execute
