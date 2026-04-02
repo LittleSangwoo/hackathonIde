@@ -60,6 +60,22 @@ namespace HackathonIde.Services
 
                     await botClient.SendTextMessageAsync(chatId, "✅ Системное уведомление успешно отправлено всем пользователям IDE!", cancellationToken: cancellationToken);
                 }
+                else if (text.StartsWith("/invite "))
+                {
+                    var roomId = text.Replace("/invite ", "").Trim();
+
+                    // ID вашей публичной группы (я взял его из твоего TelegramBotService.cs)
+                    var groupId = "-5191144557";
+
+                    // Формируем красивое сообщение. Тег <code> делает текст копируемым по клику!
+                    var inviteMsg = $"🚀 <b>Внимание, программисты!</b>\n\nОткрыта новая сессия для совместного кодинга!\n\n🔑 <b>ID комнаты:</b> <code>{roomId}</code>\n<i>(Нажмите на ID, чтобы скопировать)</i>\n\n🌐 <b>Заходите на платформу:</b>\nhttps://tova-seminivorous-lavona.ngrok-free.dev";
+
+                    // 1. Отправляем приглашение в ВАШУ ОБЩУЮ ГРУППУ
+                    await botClient.SendTextMessageAsync(groupId, inviteMsg, parseMode: ParseMode.Html, cancellationToken: cancellationToken);
+
+                    // 2. Отвечаем админу в личку, что всё прошло успешно
+                    await botClient.SendTextMessageAsync(chatId, $"✅ Приглашение в комнату {roomId} успешно отправлено в общую группу!", cancellationToken: cancellationToken);
+                }
                 else
                 {
                     await botClient.SendTextMessageAsync(chatId, "<b>Доступные команды управления:</b>\n/stats - посмотреть онлайн\n/broadcast [текст] - глобальное пуш-уведомление всем юзерам", parseMode: ParseMode.Html, cancellationToken: cancellationToken);
