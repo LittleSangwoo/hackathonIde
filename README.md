@@ -25,6 +25,8 @@
 * **Фронтенд:** Vanilla JS, HTML, CSS, Monaco Editor (ядро VS Code).
 * **AI Интеграция:** GigaChat API.
 * **Инфраструктура:** ngrok (для туннелирования и тестирования WebSockets).
+(winget install ngrok -s msstore
+ngrok http <ваш порт>)
 
 ---
 
