@@ -43,6 +43,12 @@ ngrok http <ваш порт>)
 1. Склонируйте репозиторий и откройте терминал в корневой папке бэкенда (где находится файл `HackathonIde.csproj`).
 2. Убедитесь, что в файле `appsettings.json` указаны актуальные ключи для `GigaChat`.
 3. Примените миграции Entity Framework для создания таблиц в БД:
+
+замените строку подключения в appsettings.json с вашей базой данных:
+"ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=HackathonIdeDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True;"
+},
+   
 в Visual studio Средства - Диспетчер пакетов nuget - консоль диспетчера   ```Update-Database``` 
 ### 3. Запуск Бэкенда и Туннеля
 Запустите бэкенд-сервер:
