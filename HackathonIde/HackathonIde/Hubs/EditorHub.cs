@@ -2,6 +2,7 @@
 using HackathonIde.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
 namespace HackathonIde.Hubs
@@ -28,51 +29,53 @@ namespace HackathonIde.Hubs
             _tgBot = tgBot;
         }
 
-        // ВХОД В КОМНАТУ (Решает задачи 6 и 12)
-        public async Task JoinProjectSession(string projectId)
+        // ВХОД В КОМНАТУ (Обновлено под поиск по Имени)
+        public async Task JoinProjectSession(string projectName) // Теперь принимаем Name вместо Id
         {
             var userName = Context.User?.Identity?.Name ?? "Anonymous";
             var connectionId = Context.ConnectionId;
 
-            // Генерация простой аватарки по имени пользователя (Task 12)
+            // Генерация аватарки
             var avatarUrl = $"https://ui-avatars.com/api/?name={userName}&background=random";
             var user = new ActiveUser { ConnectionId = connectionId, Username = userName, AvatarUrl = avatarUrl };
 
-            // Добавляем юзера в комнату
-            _roomUsers.AddOrUpdate(projectId,
+            // Добавляем юзера в группу по названию проекта
+            _roomUsers.AddOrUpdate(projectName,
                 _ => new List<ActiveUser> { user },
                 (_, list) => {
                     if (!list.Any(u => u.ConnectionId == connectionId)) list.Add(user);
                     return list;
                 });
 
-            await Groups.AddToGroupAsync(connectionId, projectId);
+            await Groups.AddToGroupAsync(connectionId, projectName);
 
-            // Уведомление в ленту (Task 5, 13)
-            await Clients.Group(projectId).SendAsync("ReceiveSystemEvent", $"{userName} подключился к сессии");
+            // Уведомление в ленту
+            await Clients.Group(projectName).SendAsync("ReceiveSystemEvent", $"{userName} подключился к сессии");
 
-            // Обновление списка участников для всех (Task 6)
-            await Clients.Group(projectId).SendAsync("UpdateUserList", _roomUsers[projectId]);
+            // Обновление списка участников
+            await Clients.Group(projectName).SendAsync("UpdateUserList", _roomUsers[projectName]);
 
-            // --- НОВЫЙ КОД ДЛЯ СИНХРОНИЗАЦИИ ---
+            // --- СИНХРОНИЗАЦИЯ КОДА ---
             string currentCode = "// Напишите ваш C# код здесь...";
 
-            // 1. Сначала ищем самую свежую версию в оперативной памяти (из Undo/Redo)
-            if (_roomStates.TryGetValue(projectId, out var state) && state.History.Any())
+            // 1. Сначала ищем в оперативной памяти (активная сессия)
+            if (_roomStates.TryGetValue(projectName, out var state) && state.History.Any())
             {
                 currentCode = state.History[state.CurrentIndex];
             }
-            // 2. Если в памяти пусто (сервер перезапускался), достаем из БД
-            else if (int.TryParse(projectId, out int id))
+            // 2. Если в памяти нет, ищем в БД по НАЗВАНИЮ (Name)
+            else
             {
-                var project = await _dbContext.Projects.FindAsync(id);
+                // Используем FirstOrDefaultAsync для поиска по строковому полю Name
+                var project = await _dbContext.Projects.FirstOrDefaultAsync(p => p.Name == projectName);
+
                 if (project != null && !string.IsNullOrWhiteSpace(project.CurrentCode))
                 {
                     currentCode = project.CurrentCode;
                 }
             }
 
-            // 3. Отправляем код ТОЛЬКО тому, кто зашел (Caller), чтобы его редактор заполнился
+            // 3. Отправляем код только подключившемуся пользователю
             await Clients.Caller.SendAsync("ReceiveCodeUpdate", currentCode);
         }
 
