@@ -18,6 +18,7 @@
             {
                 var url = $"https://api.telegram.org/bot{_botToken}/sendMessage?chat_id={_chatId}&text={Uri.EscapeDataString(message)}";
                 await _httpClient.GetAsync(url);
+
             }
             catch (Exception ex)
             {

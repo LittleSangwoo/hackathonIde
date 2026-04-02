@@ -155,6 +155,8 @@ namespace HackathonIde.Hubs
                 await Clients.Group(projectId).SendAsync("ReceiveAiResolution", resolvedCode);
                 await Clients.Group(projectId).SendAsync("ReceiveSystemEvent", "🤖 AI предложил решение слияния!");
                 _ = _tgBot.SendLogAsync($"🤖 [Комната {projectId}] Сработал AI-ревьюер для разрешения конфликта!");
+
+                await Clients.Group(projectId).SendAsync("ReceiveSystemEvent", $"🏆 АЧИВКА: Команда успешно использовала AI для разрешения конфликта!");
             }
             catch (Exception ex)
             {
@@ -166,6 +168,10 @@ namespace HackathonIde.Hubs
         public async Task BroadcastCursor(string projectId, string user, int lineNumber, int column)
         {
             await Clients.OthersInGroup(projectId).SendAsync("ReceiveCursor", user, lineNumber, column);
+        }
+        public async Task BroadcastMousePosition(string projectId, string user, double percentX, double percentY)
+        {
+            await Clients.OthersInGroup(projectId).SendAsync("ReceiveMousePosition", user, percentX, percentY);
         }
     }
 
