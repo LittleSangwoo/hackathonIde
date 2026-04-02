@@ -59,6 +59,11 @@ ngrok http <ваш порт>)
 ngrok http 5110
 В консоли ngrok появится HTTPS-ссылка (вида https://<ваш_уникальный_ид>.ngrok-free.dev). Скопируйте её.
 
+В ходе разработки мы столкнулись с тем, что ngrok может заблокировать ip адрес, нам помогло только подключение vpn
+(ERROR:  authentication failed: We do not allow agents to connect to ngrok from your IP address (-.-.-.-).
+ERROR: ERR_NGROK_9040
+ERROR:  https://ngrok.com/docs/errors/err_ngrok_9040)
+
 ### 4. Связывание Фронтенда с Бэкендом (ВАЖНЫЙ ШАГ)
 Поскольку ngrok при каждом запуске генерирует новую ссылку, фронтенду нужно указать актуальный адрес сервера:
 
