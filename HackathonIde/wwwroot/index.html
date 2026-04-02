@@ -2,82 +2,440 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>AI Collaborative IDE</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnliSharpTeam IDE | Collaborative Coding</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
     <style>
+        :root {
+            --bg-main: #141417;
+            --bg-panel: #1e1e22;
+            --bg-card: #2d2d33;
+            --text-main: #ffffff;
+            --color-ai: #00e5ff;
+            --color-success: #33ffaa;
+            --color-danger: #ff4d4d;
+            --border-color: #3d3d45;
+            --font-ui: 'Inter', sans-serif;
+            --font-code: 'Fira Code', monospace;
+        }
+
         body {
             height: 100vh;
             margin: 0;
-            background: #1e1e1e;
-            color: white;
+            background: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-ui);
             overflow: hidden;
         }
 
+        /* --- ХЕДЕР (КИБЕР-СТИЛЬ) --- */
+        .user-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            padding: 0 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(20, 20, 23, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1100;
+        }
+
+        .header-left-block {
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            text-transform: uppercase;
+        }
+
+            .header-logo i {
+                color: var(--color-ai);
+                font-size: 1.3rem;
+                text-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+            }
+
+        .header-divider {
+            width: 1px;
+            height: 24px;
+            background-color: rgba(255, 255, 255, 0.15);
+            margin: 0 20px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 229, 255, 0.05);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            padding: 4px 14px 4px 4px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .user-avatar {
+            width: 26px;
+            height: 26px;
+            background: var(--color-ai);
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .user-name {
+            font-family: var(--font-code);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--color-ai);
+        }
+
+        .btn-logout-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: transparent;
+            border: 1px solid rgba(255, 77, 77, 0.3);
+            color: var(--color-danger);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+            .btn-logout-icon:hover {
+                background: rgba(255, 77, 77, 0.1);
+                border-color: var(--color-danger);
+                box-shadow: 0 0 15px rgba(255, 77, 77, 0.3);
+                color: #fff;
+            }
+
+        /* --- КНОПКИ --- */
+        .btn-ai-main, .btn-outline-custom {
+            background: transparent;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 16px;
+            width: 100%;
+            border-radius: 6px;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-ai-main {
+            color: var(--color-ai);
+            border: 1px solid rgba(0, 229, 255, 0.4);
+        }
+
+            .btn-ai-main:hover {
+                background: rgba(0, 229, 255, 0.1);
+                border: 1px solid var(--color-ai);
+                color: #fff;
+                box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+            }
+
+        .btn-outline-custom {
+            color: var(--color-success);
+            border: 1px solid rgba(51, 255, 170, 0.4);
+        }
+
+            .btn-outline-custom:hover {
+                background: rgba(51, 255, 170, 0.1);
+                border: 1px solid var(--color-success);
+                color: #fff;
+                box-shadow: 0 0 15px rgba(51, 255, 170, 0.3);
+            }
+
+        /* --- ЭКРАНЫ --- */
+        .screen {
+            display: none;
+            height: 100vh;
+            width: 100vw;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            background: var(--bg-main);
+        }
+
+            .screen.active {
+                display: flex;
+            }
+
+        .auth-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .form-control-custom {
+            background: var(--bg-main) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-main) !important;
+            padding: 12px;
+            margin-bottom: 1.2rem;
+            font-size: 14px;
+        }
+
+        label.small {
+            color: #ffffff !important;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* --- ЛЕЙАУТ --- */
         .main-container {
             display: flex;
             height: 100vh;
+            width: 100vw;
+            padding-top: 60px;
         }
 
-        #editor {
-            flex-grow: 1;
-            height: 100%;
+        .editor-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .editor-statusbar {
+            height: 35px;
+            background: #1a1a1d;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            font-size: 13px;
+            color: #fff;
+        }
+
+        .terminal-panel {
+            height: 200px;
+            background: #0c0c0e;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
         }
 
         .side-panel {
             width: 350px;
-            background: #252526;
-            border-left: 1px solid #333;
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
+            min-width: 250px;
+            flex-shrink: 0;
         }
 
-        .log-panel {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            border-bottom: 1px solid #333;
+        .panel-header {
+            padding: 12px 15px;
+            background: #26262b;
+            color: var(--color-ai);
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .ai-panel {
-            height: 40%;
-            overflow-y: auto;
-            padding: 10px;
-            background: #2d2d2d;
+        .resizing-active {
+            user-select: none !important;
         }
 
-        .system-msg {
-            color: #6a9955;
-            border-bottom: 1px solid #333;
-            padding: 2px 0;
+        /* --- НОВЫЕ СТИЛИ (ДЛЯ ОНЛАЙН СПИСКА И МОДАЛКИ) --- */
+        .user-list-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        .ai-card {
-            background: #3c3c3c;
-            border-radius: 4px;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-left: 4px solid #007acc;
+        .user-list-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid var(--color-ai);
+        }
+
+        .ai-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .ai-modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--color-ai);
+            padding: 25px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <div id="editor"></div>
 
-        <div class="side-panel">
-            <div class="p-2 bg-dark text-center small fw-bold">События системы</div>
-            <div id="system-logs" class="log-panel"></div>
+    <div id="global-header" class="user-header" style="display: none;">
+        <div class="header-left-block">
+            <div class="header-logo"><i class="bi bi-braces"></i><span>OnliSharpTeam IDE</span></div>
+            <div class="header-divider"></div>
+            <div class="user-profile">
+                <div class="user-avatar"><i class="bi bi-person-fill"></i></div>
+                <span id="user-display" class="user-name">--</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn-logout-icon text-warning" onclick="deleteCurrentRoom()" title="Удалить комнату"><i class="bi bi-trash"></i></button>
+            <button class="btn-logout-icon" onclick="leaveRoom()" title="Вернуться в лобби"><i class="bi bi-door-closed"></i></button>
+            <button class="btn-logout-icon" onclick="logout()" title="Выйти из аккаунта"><i class="bi bi-power"></i></button>
+        </div>
+    </div>
 
-            <div class="p-2 bg-dark text-center small fw-bold">AI Советник (GigaChat)</div>
-            <div id="ai-suggestions" class="ai-panel">
-                <div class="text-secondary small">Нажмите "Анализ", чтобы получить советы...</div>
+    <div id="screen-auth" class="screen active">
+        <div class="auth-card text-center">
+            <h1 class="mb-4" style="color: var(--color-ai); font-weight: 800; font-size: 2.2rem;">OnliSharpTeam</h1>
+            <div id="auth-form" class="text-start">
+                <div class="mb-3">
+                    <label class="small">Логин</label>
+                    <input type="text" id="auth-username" class="form-control form-control-custom" placeholder="root">
+                </div>
+                <div class="mb-4">
+                    <label class="small">Пароль</label>
+                    <input type="password" id="auth-password" class="form-control form-control-custom" placeholder="••••••••">
+                </div>
+                <button id="btn-main-auth" class="btn-ai-main mb-3" onclick="handleAuth()"><i class="bi bi-box-arrow-in-right"></i> ВОЙТИ</button>
+                <div class="text-center">
+                    <a href="#" class="small text-info text-decoration-none" onclick="toggleAuthMode(event)">Нет аккаунта? Регистрация</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-lobby" class="screen">
+        <div class="container" style="max-width: 900px;">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="auth-card w-100">
+                        <h4 class="mb-4 text-white"><i class="bi bi-plus-circle me-2 text-success"></i>Новый проект</h4>
+                        <input type="text" id="create-name" class="form-control form-control-custom" placeholder="Название проекта">
+                        <input type="password" id="create-pass" class="form-control form-control-custom" placeholder="Пароль доступа">
+                        <button class="btn-outline-custom" onclick="handleCreateProject()"><i class="bi bi-folder-plus"></i> СОЗДАТЬ</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="auth-card w-100">
+                        <h4 class="mb-4 text-white"><i class="bi bi-door-open me-2 text-info"></i>Войти в комнату</h4>
+                        <input type="number" id="join-id" class="form-control form-control-custom" placeholder="ID проекта">
+                        <input type="password" id="join-pass" class="form-control form-control-custom" placeholder="Пароль комнаты">
+                        <button class="btn-ai-main" onclick="handleJoinProject()"><i class="bi bi-link-45deg"></i> ПОДКЛЮЧИТЬСЯ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-ide" class="screen" style="align-items: stretch; justify-content: stretch;">
+        <div class="main-container">
+            <div class="editor-section">
+                <div class="editor-statusbar">
+                    <div><i class="bi bi-braces me-1 text-info"></i> Project ID: <span id="active-project-id" class="text-white fw-bold">--</span></div>
+                    <div>C# | <span class="text-success">Online</span></div>
+                </div>
+
+                <div id="editor" style="flex: 1; min-width: 0; min-height: 0; overflow: hidden;"></div>
+
+                <div id="resizer-v" style="height: 4px; background: var(--border-color); cursor: row-resize; transition: background 0.2s;" onmouseover="this.style.background='var(--color-success)'" onmouseout="this.style.background='var(--border-color)'"></div>
+
+                <div class="terminal-panel" id="terminal-panel">
+                    <div class="panel-header d-flex align-items-center">
+                        <span><i class="bi bi-terminal me-2"></i> TERMINAL OUTPUT</span>
+                        <i class="bi bi-trash ms-auto text-secondary" style="cursor:pointer; font-size: 14px;" onclick="document.getElementById('terminal-output').innerHTML=''" title="Очистить терминал"></i>
+                    </div>
+                    <div id="terminal-output" class="p-3" style="font-family: var(--font-code); font-size: 13px; color: #ccc; overflow-y: auto; height: calc(100% - 40px);">
+                        <div style="color: var(--color-success)">> OnliSharpTeam IDE готова к работе.</div>
+                    </div>
+                </div>
             </div>
 
-            <div class="p-3">
-                <button class="btn btn-primary w-100 mb-2" onclick="analyzeCode()">✨ Анализ GigaChat</button>
-                <button class="btn btn-outline-success w-100" onclick="runCode()">▶ Запустить код</button>
+            <div id="resizer-h" style="width: 4px; background: var(--border-color); cursor: col-resize; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='var(--color-ai)'" onmouseout="this.style.background='var(--border-color)'">
+                <i class="bi bi-three-dots-vertical" style="font-size: 10px; color: #555;"></i>
+            </div>
+
+            <div class="side-panel" id="side-panel">
+                <div class="panel-header"><i class="bi bi-people me-2"></i> ONLINE</div>
+                <div id="user-list" class="p-2" style="max-height: 120px; overflow-y: auto;">
+                </div>
+
+                <div class="panel-header"><i class="bi bi-robot me-2"></i> AI ASSISTANT</div>
+                <div id="ai-suggestions" class="p-3" style="flex: 1; overflow-y: auto;">
+                    <div class="ai-card" style="border-left: 3px solid var(--color-ai); color: #fff; background: var(--bg-card); padding: 10px; border-radius: 4px;">Ожидание кода...</div>
+                </div>
+
+                <div class="panel-header"><i class="bi bi-info-circle me-2"></i> SYSTEM EVENTS</div>
+                <div id="system-logs" class="p-2 small" style="height: 120px; overflow-y: auto; color: #fff; background: rgba(0,0,0,0.2);"></div>
+
+                <div class="p-3 mt-auto">
+                    <div class="d-flex gap-2 mb-2">
+                        <button class="btn-ai-main flex-grow-1" onclick="sendUndo()" title="Отменить действие"><i class="bi bi-arrow-counterclockwise"></i></button>
+                        <button class="btn-ai-main flex-grow-1" onclick="sendRedo()" title="Вернуть действие"><i class="bi bi-arrow-clockwise"></i></button>
+                    </div>
+                    <button class="btn-ai-main mb-2" onclick="simulateConflict()"><i class="bi bi-lightning-charge"></i> ТЕСТ КОНФЛИКТА</button>
+                    <button class="btn-ai-main mb-2" onclick="analyzeCode()"><i class="bi bi-magic"></i> АНАЛИЗ AI</button>
+                    <button class="btn-outline-custom w-100" onclick="runCode()"><i class="bi bi-play-fill"></i> ЗАПУСТИТЬ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-merge-modal" class="ai-modal">
+        <div class="ai-modal-content">
+            <h5 class="text-info mb-3"><i class="bi bi-robot"></i> AI предложил решение слияния</h5>
+            <pre id="ai-resolved-code" style="background:#000; padding:15px; color:var(--color-success); font-size:12px; max-height:250px; overflow:auto; border-radius:6px; border: 1px solid #333;"></pre>
+            <div class="d-flex gap-2 mt-4">
+                <button class="btn-outline-custom" onclick="applyAiResolution()">ПРИНЯТЬ ИЗМЕНЕНИЯ</button>
+                <button class="btn-ai-main" onclick="closeAiModal()">ОТКЛОНИТЬ</button>
             </div>
         </div>
     </div>
@@ -85,5 +443,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
     <script src="app.js"></script>
+
+    <script>
+        const observer = new MutationObserver(() => {
+            const authActive = document.getElementById('screen-auth').classList.contains('active');
+            document.getElementById('global-header').style.display = authActive ? 'none' : 'flex';
+        });
+        observer.observe(document.getElementById('screen-auth'), { attributes: true });
+    </script>
 </body>
 </html>
